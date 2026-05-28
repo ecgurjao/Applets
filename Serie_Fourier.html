@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Série de Fourier Interativa</title>
 
+
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <style>
@@ -34,14 +35,30 @@
 </style>
 </head>
 
+
+<head>
+    <meta charset="UTF-8">
+    <title>Equações em LaTeX no HTML</title>
+
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
 <body>
 
 <h2>Série de Fourier</h2>
 
 <p>
-\[
+$$
 x_p(t)=\sum_{k=-9}^{9} a_k e^{-jk\omega t}
-\]
+$$
 </p>
 
 <label>
@@ -49,7 +66,8 @@ x_p(t)=\sum_{k=-9}^{9} a_k e^{-jk\omega t}
     <input type="number" id="omega" value="1" step="0.1" onchange="plotar()">
 </label>
 
-<h3>Coeficientes complexos \(a_k = \text{Re}(a_k) + j\text{Im}(a_k)\)</h3>
+<h3>Coeficientes complexos</h3>
+$$ a_k = \text{Re}(a_k) + j\text{Im}(a_k)$$
 
 <div id="controles"></div>
 
