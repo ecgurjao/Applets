@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Função X(ω)</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background: #f7f7f7;
+      color: #222;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    }
+
+    h1, .formula {
+      text-align: center;
+    }
+
+    .formula {
+      font-size: 1.3em;
+      margin-bottom: 25px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 25px;
+      margin-bottom: 20px;
+    }
+
+    .control-box {
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 10px;
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    canvas {
+      width: 100%;
+      height: 420px;
+      border: 1px solid #ccc;
+      background: white;
+    }
+
+    .note {
+      margin-top: 15px;
+      font-size: 0.95em;
+      line-height: 1.5;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Gráfico de X(ω)</h1>
+
+    <div class="formula">
+      X(ω) = 2T sinc(ωT/π)
+    </div>
+
+    <div class="controls">
+      <div class="control-box">
+        <label for="Tslider">Valor de T</label>
+        <input id="Tslider" type="range" min="0.1" max="10" step="0.1" value="1" />
+        <p>T = <span id="Tvalue">1.0</span></p>
+      </div>
+
+      <div class="control-box">
+        <label for="omegaSlider">Valor de ω destacado</label>
+        <input id="omegaSlider" type="range" min="-10" max="10" step="0.1" value="0" />
+        <p>ω = <span id="omegaValue">0.0</span></p>
+        <p>X(ω) = <span id="Xvalue">2.000</span></p>
+      </div>
+    </div>
+
+    <canvas id="grafico" width="900" height="420"></canvas>
+
+    <div class="note">
+      Foi usada a definição normalizada sinc(x) = sen(πx)/(πx). Assim,
+      sinc(ωT/π) = sen(ωT)/(ωT). Para ω = 0, usa-se o limite X(0) = 2T.
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("grafico");
+    const ctx = canvas.getContext("2d");
+
+    const Tslider = document.getElementById("Tslider");
+    const omegaSlider = document.getElementById("omegaSlider");
+    const Tvalue = document.getElementById("Tvalue");
+    const omegaValue = document.getElementById("omegaValue");
+    const Xvalue = document.getElementById("Xvalue");
+
+    const omegaMin = -10;
+    const omegaMax = 10;
+    const yMin = -5;
+    const yMax = 25;
+
+    const margemEsq = 55;
+    const margemDir = 20;
+    const margemSup = 20;
+    const margemInf = 45;
+
+    function sincNormalizada(x) {
+      if (Math.abs(x) < 1e-10) return 1;
+      return Math.sin(Math.PI * x) / (Math.PI * x);
+    }
+
+    function Xomega(omega, T) {
+      return 2 * T * sincNormalizada((omega * T) / Math.PI);
+    }
+
+    function xCanvas(omega) {
+      return margemEsq +
+        (omega - omegaMin) * (canvas.width - margemEsq - margemDir) / (omegaMax - omegaMin);
+    }
+
+    function yCanvas(y) {
+      return margemSup +
+        (yMax - y) * (canvas.height - margemSup - margemInf) / (yMax - yMin);
+    }
+
+    function desenharGrade() {
+      ctx.strokeStyle = "#e0e0e0";
+      ctx.lineWidth = 1;
+
+      for (let w = -10; w <= 10; w += 1) {
+        const x = xCanvas(w);
+        ctx.beginPath();
+        ctx.moveTo(x, margemSup);
+        ctx.lineTo(x, canvas.height - margemInf);
+        ctx.stroke();
+      }
+
+      for (let y = -5; y <= 25; y += 1) {
+        const yc = yCanvas(y);
+        ctx.beginPath();
+        ctx.moveTo(margemEsq, yc);
+        ctx.lineTo(canvas.width - margemDir, yc);
+        ctx.stroke();
+      }
+    }
+
+    function desenharEixos() {
+      ctx.strokeStyle = "#999";
+      ctx.lineWidth = 1;
+      ctx.font = "13px Arial";
+      ctx.fillStyle = "#222";
+
+      const x0 = xCanvas(0);
+      const y0 = yCanvas(0);
+
+      ctx.beginPath();
+      ctx.moveTo(margemEsq, y0);
+      ctx.lineTo(canvas.width - margemDir, y0);
+      ctx.moveTo(x0, margemSup);
+      ctx.lineTo(x0, canvas.height - margemInf);
+      ctx.stroke();
+
+      for (let w = -10; w <= 10; w += 2) {
+        const x = xCanvas(w);
+        ctx.beginPath();
+        ctx.moveTo(x, y0 - 4);
+        ctx.lineTo(x, y0 + 4);
+        ctx.stroke();
+        ctx.fillText(w.toString(), x - 8, canvas.height - 20);
+      }
+
+      for (let y = -5; y <= 25; y += 5) {
+        const yc = yCanvas(y);
+        ctx.beginPath();
+        ctx.moveTo(margemEsq - 4, yc);
+        ctx.lineTo(margemEsq + 4, yc);
+        ctx.stroke();
+        ctx.fillText(y.toString(), 18, yc + 4);
+      }
+
+      ctx.fillText("ω", canvas.width - 35, y0 - 10);
+      ctx.fillText("X(ω)", margemEsq + 8, margemSup + 12);
+    }
+
+    function desenharCurva(T) {
+      ctx.strokeStyle = "#0066cc";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      const numeroPontos = 500;
+
+      for (let i = 0; i <= numeroPontos; i++) {
+        const omega = omegaMin + i * (omegaMax - omegaMin) / numeroPontos;
+        const y = Xomega(omega, T);
+        const x = xCanvas(omega);
+        const yc = yCanvas(y);
+
+        if (i === 0) ctx.moveTo(x, yc);
+        else ctx.lineTo(x, yc);
+      }
+
+      ctx.stroke();
+    }
+
+    function desenharPonto(omega, T) {
+      const y = Xomega(omega, T);
+      const x = xCanvas(omega);
+      const yc = yCanvas(y);
+
+      ctx.fillStyle = "#cc0000";
+      ctx.beginPath();
+      ctx.arc(x, yc, 6, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    function atualizarGrafico() {
+      const T = Number(Tslider.value);
+      const omega = Number(omegaSlider.value);
+      const X = Xomega(omega, T);
+
+      Tvalue.textContent = T.toFixed(1);
+      omegaValue.textContent = omega.toFixed(1);
+      Xvalue.textContent = X.toFixed(3);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      desenharGrade();
+      desenharEixos();
+      desenharCurva(T);
+      desenharPonto(omega, T);
+    }
+
+    Tslider.addEventListener("input", atualizarGrafico);
+    omegaSlider.addEventListener("input", atualizarGrafico);
+
+    atualizarGrafico();
+  </script>
+</body>
+</html>
