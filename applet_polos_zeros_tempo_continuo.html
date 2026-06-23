@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Applet Polos e Zeros no Plano s</title>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 25px;
+        background: #f7f7f7;
+    }
+
+    h1, h2 {
+        color: #222;
+    }
+
+    .painel {
+        background: white;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 6px rgba(0,0,0,0.15);
+    }
+
+    .linha {
+        display: grid;
+        grid-template-columns: 80px 120px 120px;
+        gap: 10px;
+        margin-bottom: 8px;
+        align-items: center;
+    }
+
+    input, select, button {
+        padding: 6px;
+        font-size: 14px;
+    }
+
+    button {
+        cursor: pointer;
+        margin-top: 10px;
+    }
+
+    .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+        .grid2 {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<h1>Applet: Polos e Zeros no Plano s</h1>
+
+<div class="painel">
+    <p>
+        Este applet considera uma função de transferência racional no domínio de Laplace:
+    </p>
+
+    <p style="font-size:20px;">
+        H(s) = K \(\prod (s-z_i)\) / \(\prod (s-p_i)\)
+    </p>
+
+    <p>
+        A função desenhada no tempo contínuo é a resposta ao impulso \(h(t)\), obtida por expansão em frações parciais.
+        Para simplificar a apresentação didática, o applet considera polos simples.
+    </p>
+</div>
+
+<div class="painel">
+    <h2>Configuração</h2>
+
+    <label>Ganho K:</label>
+    <input type="number" id="ganho" value="1" step="0.1" onchange="atualizar()">
+
+    <br><br>
+
+    <label>Número de zeros:</label>
+    <select id="numZeros" onchange="criarEntradas()">
+        <option>0</option>
+        <option>1</option>
+        <option>2</option>
+        <option>3</option>
+        <option>4</option>
+    </select>
+
+    <label style="margin-left:20px;">Número de polos:</label>
+    <select id="numPolos" onchange="criarEntradas()">
+        <option>1</option>
+        <option selected>2</option>
+        <option>3</option>
+        <option>4</option>
+        <option>5</option>
+    </select>
+
+    <br><br>
+
+    <label>Tempo final:</label>
+    <input type="number" id="tFinal" value="10" step="1" min="1" onchange="atualizar()">
+
+    <button onclick="atualizar()">Atualizar gráfico</button>
+</div>
+
+<div class="grid2">
+    <div class="painel">
+        <h2>Zeros</h2>
+        <div class="linha">
+            <b>Zero</b><b>Parte real</b><b>Parte imaginária</b>
+        </div>
+        <div id="entradasZeros"></div>
+    </div>
+
+    <div class="painel">
+        <h2>Polos</h2>
+        <div class="linha">
+            <b>Polo</b><b>Parte real</b><b>Parte imaginária</b>
+        </div>
+        <div id="entradasPolos"></div>
+    </div>
+</div>
+
+<div class="grid2">
+    <div class="painel">
+        <h2>Plano s</h2>
+        <div id="planoS" style="height:450px;"></div>
+    </div>
+
+    <div class="painel">
+        <h2>Resposta no tempo contínuo</h2>
+        <div id="tempo" style="height:450px;"></div>
+    </div>
+</div>
+
+<script>
+// -----------------------------
+// Operações com números complexos
+// -----------------------------
+function c(re, im) {
+    return {re: re, im: im};
+}
+
+function cadd(a, b) {
+    return c(a.re + b.re, a.im + b.im);
+}
+
+function csub(a, b) {
+    return c(a.re - b.re, a.im - b.im);
+}
+
+function cmul(a, b) {
+    return c(a.re*b.re - a.im*b.im, a.re*b.im + a.im*b.re);
+}
+
+function cdiv(a, b) {
+    const den = b.re*b.re + b.im*b.im;
+    return c((a.re*b.re + a.im*b.im)/den, (a.im*b.re - a.re*b.im)/den);
+}
+
+function cexp(a) {
+    const ea = Math.exp(a.re);
+    return c(ea*Math.cos(a.im), ea*Math.sin(a.im));
+}
+
+// -----------------------------
+// Interface
+// -----------------------------
+function criarEntradas() {
+    const nz = parseInt(document.getElementById("numZeros").value);
+    const np = parseInt(document.getElementById("numPolos").value);
+
+    const divZ = document.getElementById("entradasZeros");
+    const divP = document.getElementById("entradasPolos");
+
+    divZ.innerHTML = "";
+    divP.innerHTML = "";
+
+    for (let i = 0; i < nz; i++) {
+        divZ.innerHTML += `
+            <div class="linha">
+                <span>z${i+1}</span>
+                <input type="number" id="zr${i}" value="${i === 0 ? -1 : 0}" step="0.1" onchange="atualizar()">
+                <input type="number" id="zi${i}" value="0" step="0.1" onchange="atualizar()">
+            </div>`;
+    }
+
+    for (let i = 0; i < np; i++) {
+        let rePadrao = -1 - i;
+        let imPadrao = 0;
+
+        if (np >= 2 && i === 0) { rePadrao = -1; imPadrao = 2; }
+        if (np >= 2 && i === 1) { rePadrao = -1; imPadrao = -2; }
+
+        divP.innerHTML += `
+            <div class="linha">
+                <span>p${i+1}</span>
+                <input type="number" id="pr${i}" value="${rePadrao}" step="0.1" onchange="atualizar()">
+                <input type="number" id="pi${i}" value="${imPadrao}" step="0.1" onchange="atualizar()">
+            </div>`;
+    }
+
+    atualizar();
+}
+
+function lerZeros() {
+    const nz = parseInt(document.getElementById("numZeros").value);
+    let zeros = [];
+    for (let i = 0; i < nz; i++) {
+        zeros.push(c(
+            parseFloat(document.getElementById(`zr${i}`).value),
+            parseFloat(document.getElementById(`zi${i}`).value)
+        ));
+    }
+    return zeros;
+}
+
+function lerPolos() {
+    const np = parseInt(document.getElementById("numPolos").value);
+    let polos = [];
+    for (let i = 0; i < np; i++) {
+        polos.push(c(
+            parseFloat(document.getElementById(`pr${i}`).value),
+            parseFloat(document.getElementById(`pi${i}`).value)
+        ));
+    }
+    return polos;
+}
+
+// -----------------------------
+// Cálculo dos resíduos
+// Para polos simples:
+// A_i = K * prod(p_i - z_m) / prod_{j != i}(p_i - p_j)
+// h(t) = sum A_i exp(p_i t) u(t)
+// -----------------------------
+function calcularResiduos(zeros, polos, K) {
+    let residuos = [];
+
+    for (let i = 0; i < polos.length; i++) {
+        let num = c(K, 0);
+        let den = c(1, 0);
+
+        for (let m = 0; m < zeros.length; m++) {
+            num = cmul(num, csub(polos[i], zeros[m]));
+        }
+
+        for (let j = 0; j < polos.length; j++) {
+            if (j !== i) {
+                den = cmul(den, csub(polos[i], polos[j]));
+            }
+        }
+
+        residuos.push(cdiv(num, den));
+    }
+
+    return residuos;
+}
+
+function calcularResposta(t, polos, residuos) {
+    let h = c(0, 0);
+
+    for (let i = 0; i < polos.length; i++) {
+        const pit = c(polos[i].re * t, polos[i].im * t);
+        h = cadd(h, cmul(residuos[i], cexp(pit)));
+    }
+
+    return h;
+}
+
+function atualizar() {
+    const zeros = lerZeros();
+    const polos = lerPolos();
+    const K = parseFloat(document.getElementById("ganho").value);
+    const tFinal = parseFloat(document.getElementById("tFinal").value);
+
+    desenharPlanoS(zeros, polos);
+    desenharTempo(zeros, polos, K, tFinal);
+}
+
+function desenharPlanoS(zeros, polos) {
+    const zerosTrace = {
+        x: zeros.map(z => z.re),
+        y: zeros.map(z => z.im),
+        mode: "markers",
+        name: "Zeros",
+        marker: {
+            symbol: "circle-open",
+            size: 14,
+            line: {width: 3}
+        }
+    };
+
+    const polosTrace = {
+        x: polos.map(p => p.re),
+        y: polos.map(p => p.im),
+        mode: "markers",
+        name: "Polos",
+        marker: {
+            symbol: "x",
+            size: 14,
+            line: {width: 3}
+        }
+    };
+
+    const layout = {
+        title: "Polos e zeros no plano s",
+        xaxis: {
+            title: "Re{s}",
+            zeroline: true,
+            gridcolor: "#ddd"
+        },
+        yaxis: {
+            title: "Im{s}",
+            zeroline: true,
+            gridcolor: "#ddd",
+            scaleanchor: "x",
+            scaleratio: 1
+        },
+        showlegend: true
+    };
+
+    Plotly.newPlot("planoS", [zerosTrace, polosTrace], layout);
+}
+
+function desenharTempo(zeros, polos, K, tFinal) {
+    const residuos = calcularResiduos(zeros, polos, K);
+
+    let t = [];
+    let hReal = [];
+    let hImag = [];
+
+    const N = 1000;
+
+    for (let i = 0; i <= N; i++) {
+        const ti = i * tFinal / N;
+        const h = calcularResposta(ti, polos, residuos);
+
+        t.push(ti);
+        hReal.push(h.re);
+        hImag.push(h.im);
+    }
+
+    const traceReal = {
+        x: t,
+        y: hReal,
+        mode: "lines",
+        name: "Re{h(t)}"
+    };
+
+    const traceImag = {
+        x: t,
+        y: hImag,
+        mode: "lines",
+        name: "Im{h(t)}",
+        line: {dash: "dot"}
+    };
+
+    const layout = {
+        title: "Resposta ao impulso h(t)",
+        xaxis: {
+            title: "t",
+            gridcolor: "#ddd"
+        },
+        yaxis: {
+            title: "h(t)",
+            gridcolor: "#ddd"
+        },
+        showlegend: true
+    };
+
+    Plotly.newPlot("tempo", [traceReal, traceImag], layout);
+}
+
+criarEntradas();
+</script>
+
+</body>
+</html>
